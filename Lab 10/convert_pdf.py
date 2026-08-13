@@ -17,11 +17,13 @@ for bp in edge_paths:
         break
 
 if browser_binary and os.path.exists(html_path):
-    print(f"Converting HTML to PDF using {browser_binary}...")
+    print(f"Converting HTML to PDF using {browser_binary} (with virtual time budget for MathJax rendering)...")
     cmd = [
         browser_binary,
         "--headless",
         "--disable-gpu",
+        "--run-all-compositor-stages-before-draw",
+        "--virtual-time-budget=10000",
         f"--print-to-pdf={pdf_path}",
         html_path
     ]

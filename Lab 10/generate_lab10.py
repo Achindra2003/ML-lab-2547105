@@ -1,14 +1,22 @@
 """Builds and executes Lab_10_MLP_XOR.ipynb with publication-grade depth,
-mathematical derivations, linear inseparability proofs, multi-library baselines,
-comprehensive 2D decision boundary contour plots, hyperparameter tuning loops,
-and self-learning initiatives (NumPy scratch backprop & latent space plots).
-Handles graceful fallback for framework imports so PyTorch and NumPy outputs embed cleanly.
+clean standalone runnable cells (no conditionals), clean MathJax 3 header configuration,
+and dual Unicode/LaTeX formatted mathematical equations for flawless rendering in HTML, PDF, and VSCode.
 """
 import os
 import nbformat as nbf
 from nbconvert.preprocessors import ExecutePreprocessor
 
 nb = nbf.v4.new_notebook()
+
+# MathJax 3 Configuration in notebook metadata for HTML/PDF rendering
+nb.metadata = {
+    "language_info": {"name": "python"},
+    "mathjax": {
+        "inlineMath": [["$", "$"], ["\\(", "\\)"]],
+        "displayMath": [["$$", "$$"], ["\\[", "\\]"]]
+    }
+}
+
 cells = []
 
 def md(src):
@@ -59,17 +67,11 @@ import seaborn as sns
 import time
 import warnings
 
-# Framework imports with graceful handling
-HAS_TF = True
-try:
-    import tensorflow as tf
-    from tensorflow import keras
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import Dense
-    tf.random.set_seed(42)
-except ModuleNotFoundError:
-    HAS_TF = False
-    print("TensorFlow not installed locally; Keras/TF cells will run in simulation mode.")
+# Framework imports
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
 
 import torch
 import torch.nn as nn
@@ -85,9 +87,10 @@ warnings.filterwarnings("ignore")
 # Global Reproducibility
 SEED = 42
 np.random.seed(SEED)
+tf.random.set_seed(SEED)
 torch.manual_seed(SEED)
 
-print("Environment configured! Package loading complete.")""")
+print("Environment configured successfully! All packages (Keras, PyTorch, TensorFlow) loaded.")""")
 
 md(r"""### **Student Notes & Implementation Rationale**
 Loading Keras, PyTorch, and TensorFlow low-level APIs concurrently allows a direct 1-to-1-to-1 comparison of syntax, execution latency, autograd mechanisms, and loss convergence within a single unified execution state.""")
@@ -97,13 +100,15 @@ md(r"""## **Task 1: Dataset Creation & Mathematical Proof of Linear Inseparabili
 
 ### **Justification & Mathematical Proof**
 A single-layer perceptron computes $y = \sigma(w_1 x_1 + w_2 x_2 + b)$. For 100% classification accuracy on XOR, there must exist weights $(w_1, w_2, b)$ satisfying the following system of linear inequalities:
-1. $x_1=0, x_2=0 \implies w_1(0) + w_2(0) + b \le 0 \implies b \le 0$
-2. $x_1=0, x_2=1 \implies w_2 + b > 0 \implies w_2 > -b \ge 0$
-3. $x_1=1, x_2=0 \implies w_1 + b > 0 \implies w_1 > -b \ge 0$
-4. $x_1=1, x_2=1 \implies w_1 + w_2 + b \le 0$
+
+1. Input $(0, 0) \implies w_1(0) + w_2(0) + b \le 0 \implies b \le 0$
+2. Input $(0, 1) \implies w_2 + b > 0 \implies w_2 > -b \ge 0$
+3. Input $(1, 0) \implies w_1 + b > 0 \implies w_1 > -b \ge 0$
+4. Input $(1, 1) \implies w_1 + w_2 + b \le 0$
 
 Adding inequality (2) and (3) gives: $w_1 + w_2 + 2b > 0$.  
 Since $b \le 0$, we have $w_1 + w_2 + b > w_1 + w_2 + 2b > 0$, which directly contradicts inequality (4) ($w_1 + w_2 + b \le 0$).  
+
 **Conclusion**: No straight line $w_1 x_1 + w_2 x_2 + b = 0$ can separate the XOR targets. An MLP with a non-linear hidden layer is mathematically mandatory.""")
 
 code(r"""# XOR Input Matrix (X) and Target Vector (y)
@@ -129,38 +134,33 @@ md(r"""## **Task 2: Keras (High-Level API) Implementation**
 ### **Justification of Hyperparameters**
 - **Architecture**: 2 input neurons, 8 hidden neurons (`Tanh`), 1 output neuron (`Sigmoid`).
 - **Activation Rationale**: `Tanh` maps to $[-1, 1]$, offering stronger zero-centered gradients than `ReLU` when processing sparse $[0,1]$ boolean inputs.
-- **Optimizer & Loss**: `Adam` ($LR=0.05$) combined with `Binary Cross-Entropy` loss ($\mathcal{L} = -y \log \hat{y} - (1-y) \log(1-\hat{y})$) to rapidly bridge error gaps in 200 epochs.""")
+- **Optimizer & Loss**: `Adam` ($LR=0.05$) combined with Binary Cross-Entropy loss ($\mathcal{L} = -y \log \hat{y} - (1-y) \log(1-\hat{y})$) to rapidly bridge error gaps in 200 epochs.""")
 
-code(r"""if HAS_TF:
-    tf.random.set_seed(SEED)
-    np.random.seed(SEED)
+code(r"""tf.random.set_seed(SEED)
+np.random.seed(SEED)
 
-    start_k = time.time()
-    keras_model = Sequential([
-        Dense(8, input_dim=2, activation='tanh', name="Hidden_Layer"),
-        Dense(1, activation='sigmoid', name="Output_Layer")
-    ])
+start_k = time.time()
+keras_model = Sequential([
+    Dense(8, input_dim=2, activation='tanh', name="Hidden_Layer"),
+    Dense(1, activation='sigmoid', name="Output_Layer")
+])
 
-    keras_model.compile(
-        loss='binary_crossentropy',
-        optimizer=keras.optimizers.Adam(learning_rate=0.05),
-        metrics=['accuracy']
-    )
+keras_model.compile(
+    loss='binary_crossentropy',
+    optimizer=keras.optimizers.Adam(learning_rate=0.05),
+    metrics=['accuracy']
+)
 
-    keras_hist = keras_model.fit(X, y, epochs=200, verbose=0)
-    time_k = time.time() - start_k
+keras_hist = keras_model.fit(X, y, epochs=200, verbose=0)
+time_k = time.time() - start_k
 
-    loss_k, acc_k = keras_model.evaluate(X, y, verbose=0)
-    preds_k = keras_model.predict(X, verbose=0)
+loss_k, acc_k = keras_model.evaluate(X, y, verbose=0)
+preds_k = keras_model.predict(X, verbose=0)
 
-    print(f"Keras Training Latency : {time_k:.4f} seconds")
-    print(f"Keras Final BCE Loss   : {loss_k:.4f}")
-    print(f"Keras Final Accuracy   : {acc_k*100:.2f}%")
-    print("Keras Raw Predictions  :\n", np.round(preds_k, 4))
-else:
-    print("Keras execution skipped locally (TensorFlow package pending).")
-    loss_k, acc_k, time_k = 0.0031, 1.0, 0.1250
-    preds_k = np.array([[0.0021], [0.9984], [0.9981], [0.0019]])""")
+print(f"Keras Training Latency : {time_k:.4f} seconds")
+print(f"Keras Final BCE Loss   : {loss_k:.4f}")
+print(f"Keras Final Accuracy   : {acc_k*100:.2f}%")
+print("Keras Raw Predictions  :\n", np.round(preds_k, 4))""")
 
 md(r"""### **Student Notes & Task 2 Findings**
 Keras' `.fit()` method internally handles computational graph compilation and backpropagation, cleanly solving XOR to 100% accuracy with a loss near 0.003.""")
@@ -221,46 +221,41 @@ md(r"""## **Task 4: TensorFlow Low-Level API Implementation**
 ### **Justification of Low-Level Primitives**
 Explicitly constructing weight matrices $W_1 \in \mathbb{R}^{2 \times 8}, W_2 \in \mathbb{R}^{8 \times 1}$ using `tf.Variable` and evaluating gradients via `tf.GradientTape()` exposes the raw dynamic autograd chain-rule operations.""")
 
-code(r"""if HAS_TF:
-    tf.random.set_seed(SEED)
+code(r"""tf.random.set_seed(SEED)
 
-    W1_tf = tf.Variable(tf.random.normal([2, 8], stddev=0.1, seed=SEED))
-    b1_tf = tf.Variable(tf.zeros([8]))
-    W2_tf = tf.Variable(tf.random.normal([8, 1], stddev=0.1, seed=SEED))
-    b2_tf = tf.Variable(tf.zeros([1]))
+W1_tf = tf.Variable(tf.random.normal([2, 8], stddev=0.1, seed=SEED))
+b1_tf = tf.Variable(tf.zeros([8]))
+W2_tf = tf.Variable(tf.random.normal([8, 1], stddev=0.1, seed=SEED))
+b2_tf = tf.Variable(tf.zeros([1]))
 
-    def tf_forward_pass(x):
-        z1 = tf.matmul(x, W1_tf) + b1_tf
-        a1 = tf.math.tanh(z1)
-        z2 = tf.matmul(a1, W2_tf) + b2_tf
-        a2 = tf.math.sigmoid(z2)
-        return a2
+def tf_forward_pass(x):
+    z1 = tf.matmul(x, W1_tf) + b1_tf
+    a1 = tf.math.tanh(z1)
+    z2 = tf.matmul(a1, W2_tf) + b2_tf
+    a2 = tf.math.sigmoid(z2)
+    return a2
 
-    opt_tf = tf.optimizers.Adam(learning_rate=0.05)
+opt_tf = tf.optimizers.Adam(learning_rate=0.05)
 
-    start_tf = time.time()
-    tf_losses = []
-    for epoch in range(200):
-        with tf.GradientTape() as tape:
-            preds = tf_forward_pass(X)
-            loss_val = tf.reduce_mean(tf.keras.losses.binary_crossentropy(y, preds))
-        
-        grads = tape.gradient(loss_val, [W1_tf, b1_tf, W2_tf, b2_tf])
-        opt_tf.apply_gradients(zip(grads, [W1_tf, b1_tf, W2_tf, b2_tf]))
-        tf_losses.append(loss_val.numpy())
-    time_tf = time.time() - start_tf
+start_tf = time.time()
+tf_losses = []
+for epoch in range(200):
+    with tf.GradientTape() as tape:
+        preds = tf_forward_pass(X)
+        loss_val = tf.reduce_mean(tf.keras.losses.binary_crossentropy(y, preds))
+    
+    grads = tape.gradient(loss_val, [W1_tf, b1_tf, W2_tf, b2_tf])
+    opt_tf.apply_gradients(zip(grads, [W1_tf, b1_tf, W2_tf, b2_tf]))
+    tf_losses.append(loss_val.numpy())
+time_tf = time.time() - start_tf
 
-    final_preds_tf = tf_forward_pass(X).numpy()
-    acc_tf = np.mean((final_preds_tf > 0.5) == y)
+final_preds_tf = tf_forward_pass(X).numpy()
+acc_tf = np.mean((final_preds_tf > 0.5) == y)
 
-    print(f"TF Low-Level Training Latency : {time_tf:.4f} seconds")
-    print(f"TF Low-Level Final BCE Loss   : {tf_losses[-1]:.4f}")
-    print(f"TF Low-Level Final Accuracy   : {acc_tf*100:.2f}%")
-    print("TF Low-Level Raw Predictions  :\n", np.round(final_preds_tf, 4))
-else:
-    print("TF Low-Level execution skipped locally (TensorFlow package pending).")
-    loss_tf, acc_tf, time_tf = 0.0058, 1.0, 0.1840
-    tf_losses = pt_losses""")
+print(f"TF Low-Level Training Latency : {time_tf:.4f} seconds")
+print(f"TF Low-Level Final BCE Loss   : {tf_losses[-1]:.4f}")
+print(f"TF Low-Level Final Accuracy   : {acc_tf*100:.2f}%")
+print("TF Low-Level Raw Predictions  :\n", np.round(final_preds_tf, 4))""")
 
 md(r"""### **Student Notes & Task 4 Findings**
 The manual low-level gradient tape loop reached exact accuracy convergence (100%), proving algorithmic equivalence across high-level abstractions and raw matrix operations.""")
@@ -274,7 +269,7 @@ summary_df = pd.DataFrame({
     'Library / API': ['Keras (High-Level)', 'PyTorch (Dynamic Graph)', 'TensorFlow (Low-Level)'],
     'Training Time (s)': [f"{time_k:.4f}", f"{time_pt:.4f}", f"{time_tf:.4f}"],
     'Final BCE Loss': [f"{loss_k:.4f}", f"{pt_losses[-1]:.4f}", f"{tf_losses[-1]:.4f}"],
-    'Final Accuracy (%)': [f"{acc_pt*100:.2f}%", f"{acc_pt*100:.2f}%", f"{acc_pt*100:.2f}%"],
+    'Final Accuracy (%)': [f"{acc_k*100:.2f}%", f"{acc_pt*100:.2f}%", f"{acc_tf*100:.2f}%"],
     'Correct XOR Learned?': ['Yes (100%)', 'Yes (100%)', 'Yes (100%)']
 })
 
@@ -289,16 +284,11 @@ To prove that the neural networks did not merely memorize 4 discrete points but 
 code(r"""xx, yy = np.meshgrid(np.linspace(-0.5, 1.5, 100), np.linspace(-0.5, 1.5, 100))
 grid_points = np.c_[xx.ravel(), yy.ravel()].astype(np.float32)
 
-# PyTorch Predictions across grid
+# Predictions across grid
+z_k = keras_model.predict(grid_points, verbose=0).reshape(xx.shape)
 with torch.no_grad():
     z_pt = pt_model(torch.tensor(grid_points)).numpy().reshape(xx.shape)
-
-if HAS_TF:
-    z_k = keras_model.predict(grid_points, verbose=0).reshape(xx.shape)
-    z_tf = tf_forward_pass(grid_points).numpy().reshape(xx.shape)
-else:
-    z_k = z_pt
-    z_tf = z_pt
+z_tf = tf_forward_pass(grid_points).numpy().reshape(xx.shape)
 
 fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
@@ -328,10 +318,9 @@ All three frameworks generate curved decision manifolds enclosing $(0,1)$ and $(
 md(r"""## **Optional Exercise 2: Comparative Training Curves Between Libraries**""")
 
 code(r"""plt.figure(figsize=(10, 5))
-plt.plot(pt_losses, label='PyTorch (Adam LR=0.05)', linewidth=2.5)
-if HAS_TF:
-    plt.plot(keras_hist.history['loss'], label='Keras (Adam LR=0.05)', linewidth=2.5, linestyle='--')
-    plt.plot(tf_losses, label='TF Low-Level (Adam LR=0.05)', linewidth=2.5, linestyle=':')
+plt.plot(keras_hist.history['loss'], label='Keras (Adam LR=0.05)', linewidth=2.5)
+plt.plot(pt_losses, label='PyTorch (Adam LR=0.05)', linewidth=2.5, linestyle='--')
+plt.plot(tf_losses, label='TF Low-Level (Adam LR=0.05)', linewidth=2.5, linestyle=':')
 plt.title("Comparative Loss Convergence Trajectories (200 Epochs)", fontweight='bold')
 plt.xlabel("Epochs")
 plt.ylabel("Binary Cross-Entropy Loss")
@@ -472,14 +461,16 @@ md(r"""## **Part 5: Advanced Self-Learning Initiatives (SLIs)**
 
 ### **Mathematical Derivations of Backpropagation**
 Given $X \in \mathbb{R}^{4 \times 2}, W_1 \in \mathbb{R}^{2 \times 8}, b_1 \in \mathbb{R}^{1 \times 8}, W_2 \in \mathbb{R}^{8 \times 1}, b_2 \in \mathbb{R}^{1 \times 1}$:
-1. Forward Pass:
-   $$Z_1 = X W_1 + b_1, \quad A_1 = \tanh(Z_1)$$
-   $$Z_2 = A_1 W_2 + b_2, \quad \hat{y} = \sigma(Z_2) = \frac{1}{1 + e^{-Z_2}}$$
-2. Derivatives of Binary Cross-Entropy Loss:
-   $$\delta_2 = \frac{\partial \mathcal{L}}{\partial Z_2} = \hat{y} - y$$
-   $$\frac{\partial \mathcal{L}}{\partial W_2} = A_1^T \delta_2, \quad \frac{\partial \mathcal{L}}{\partial b_2} = \sum \delta_2$$
-   $$\delta_1 = \frac{\partial \mathcal{L}}{\partial Z_1} = (\delta_2 W_2^T) \odot (1 - A_1^2)$$
-   $$\frac{\partial \mathcal{L}}{\partial W_1} = X^T \delta_1, \quad \frac{\partial \mathcal{L}}{\partial b_1} = \sum \delta_1$$""")
+
+1. Forward Pass:  
+   $Z_1 = X W_1 + b_1, \quad A_1 = \tanh(Z_1)$  
+   $Z_2 = A_1 W_2 + b_2, \quad \hat{y} = \sigma(Z_2) = \frac{1}{1 + e^{-Z_2}}$
+
+2. Derivatives of Binary Cross-Entropy Loss:  
+   $\delta_2 = \frac{\partial \mathcal{L}}{\partial Z_2} = \hat{y} - y$  
+   $\frac{\partial \mathcal{L}}{\partial W_2} = A_1^T \delta_2, \quad \frac{\partial \mathcal{L}}{\partial b_2} = \sum \delta_2$  
+   $\delta_1 = \frac{\partial \mathcal{L}}{\partial Z_1} = (\delta_2 W_2^T) \odot (1 - A_1^2)$  
+   $\frac{\partial \mathcal{L}}{\partial W_1} = X^T \delta_1, \quad \frac{\partial \mathcal{L}}{\partial b_1} = \sum \delta_1$""")
 
 code(r"""# Pure NumPy Scratch MLP Implementation
 np.random.seed(SEED)
